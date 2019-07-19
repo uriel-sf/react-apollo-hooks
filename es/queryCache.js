@@ -18,7 +18,7 @@ export function getCachedObservableQuery(client, options) {
 export function invalidateCachedObservableQuery(client, options) {
   var queriesForClient = getCachedQueriesForClient(client);
   var cacheKey = getCacheKey(options);
-  queriesForClient.delete(cacheKey);
+  queriesForClient["delete"](cacheKey);
 }
 
 function getCachedQueriesForClient(client) {

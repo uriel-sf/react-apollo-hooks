@@ -1,11 +1,11 @@
-import ApolloClient, { ApolloCurrentResult, ApolloQueryResult, FetchMoreOptions, FetchMoreQueryOptions, NetworkStatus, ObservableQuery, OperationVariables, QueryOptions } from 'apollo-client';
+import ApolloClient, { ApolloCurrentQueryResult, ApolloQueryResult, FetchMoreOptions, FetchMoreQueryOptions, NetworkStatus, ObservableQuery, OperationVariables, WatchQueryOptions } from 'apollo-client';
 import { DocumentNode } from 'graphql';
 import { Omit } from './utils';
-export interface QueryHookState<TData> extends Pick<ApolloCurrentResult<undefined | TData>, 'error' | 'errors' | 'loading' | 'partial'> {
+export interface QueryHookState<TData> extends Pick<ApolloCurrentQueryResult<undefined | TData>, 'error' | 'errors' | 'loading' | 'partial' | 'stale'> {
     data?: TData;
     networkStatus: NetworkStatus | undefined;
 }
-export interface QueryHookOptions<TVariables, TCache = object> extends Omit<QueryOptions<TVariables>, 'query'> {
+export interface QueryHookOptions<TVariables, TCache = object> extends Omit<WatchQueryOptions<TVariables>, 'query'> {
     notifyOnNetworkStatusChange?: boolean;
     pollInterval?: number;
     client?: ApolloClient<TCache>;

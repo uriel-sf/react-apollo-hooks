@@ -62,12 +62,12 @@ export function useQuery(query, _temp) {
       stopPolling: observableQuery.stopPolling.bind(observableQuery),
       updateQuery: observableQuery.updateQuery.bind(observableQuery)
     };
-    var result = observableQuery.currentResult(); // return the old result data when there is an error
+    var result = observableQuery.getCurrentResult(); // return the old result data when there is an error
 
     var data = result.data;
 
     if (result.error || result.errors) {
-      data = _extends({}, result.data, (observableQuery.getLastResult() || {}).data);
+      data = _extends({}, result.data, {}, (observableQuery.getLastResult() || {}).data);
     }
 
     if (shouldSkip) {
@@ -91,7 +91,8 @@ export function useQuery(query, _temp) {
       // because it's unreliable in that case
       // https://github.com/trojanowski/react-apollo-hooks/pull/68
       networkStatus: suspend ? undefined : result.networkStatus,
-      partial: result.partial
+      partial: result.partial,
+      stale: result.stale
     });
   }, [shouldSkip, responseId, observableQuery]);
   useEffect(function () {
