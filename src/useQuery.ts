@@ -1,14 +1,13 @@
 import ApolloClient, {
-  ApolloCurrentResult,
+  ApolloCurrentQueryResult,
   ApolloError,
   ApolloQueryResult,
   FetchMoreOptions,
   FetchMoreQueryOptions,
-  FetchPolicy,
   NetworkStatus,
   ObservableQuery,
   OperationVariables,
-  QueryOptions,
+  WatchQueryFetchPolicy,
   WatchQueryOptions,
 } from 'apollo-client';
 import { DocumentNode } from 'graphql';
@@ -24,8 +23,8 @@ import { Omit, compact, objToKey } from './utils';
 
 export interface QueryHookState<TData>
   extends Pick<
-    ApolloCurrentResult<undefined | TData>,
-    'error' | 'errors' | 'loading' | 'partial'
+    ApolloCurrentQueryResult<undefined | TData>,
+    'error' | 'errors' | 'loading' | 'partial' | 'stale'
   > {
   data?: TData;
   // networkStatus is undefined for skipped queries or the ones using suspense
@@ -33,7 +32,7 @@ export interface QueryHookState<TData>
 }
 
 export interface QueryHookOptions<TVariables, TCache = object>
-  extends Omit<QueryOptions<TVariables>, 'query'> {
+  extends Omit<WatchQueryOptions<TVariables>, 'query'> {
   // watch query options from apollo client
   notifyOnNetworkStatusChange?: boolean;
   pollInterval?: number;
@@ -141,7 +140,7 @@ export function useQuery<
         updateQuery: observableQuery.updateQuery.bind(observableQuery),
       };
 
-      const result = observableQuery.currentResult();
+      const result = observableQuery.getCurrentResult();
 
       // return the old result data when there is an error
       let data = result.data as TData;
@@ -177,6 +176,7 @@ export function useQuery<
         // https://github.com/trojanowski/react-apollo-hooks/pull/68
         networkStatus: suspend ? undefined : result.networkStatus,
         partial: result.partial,
+        stale: result.stale,
       };
     },
     [shouldSkip, responseId, observableQuery]
@@ -261,7 +261,7 @@ export function useQuery<
 
 function ensureSupportedFetchPolicy(
   suspend: boolean,
-  fetchPolicy?: FetchPolicy
+  fetchPolicy?: WatchQueryFetchPolicy
 ) {
   if (suspend && fetchPolicy && fetchPolicy !== 'cache-first') {
     throw new Error(
