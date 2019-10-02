@@ -1,6 +1,6 @@
 function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
 
-import { ApolloError } from 'apollo-client';
+import { ApolloError, NetworkStatus } from 'apollo-client';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import { useApolloClient } from './ApolloContext';
 import { SSRContext } from './internal/SSRContext';
@@ -78,8 +78,11 @@ export function useQuery(query, _temp) {
         loading: false,
         networkStatus: undefined
       });
-    }
+    } // Seems to be a bug in this fork when you skip a query and then call the query w/ previously cached result,
+    // you get a "network error" w/ no errors.
 
+
+    var networkStatus = result.networkStatus === NetworkStatus.error && !result.error && !result.errors ? NetworkStatus.ready : result.networkStatus;
     return _extends({}, helpers, {
       data: data,
       error: result.errors && result.errors.length > 0 ? new ApolloError({
@@ -90,7 +93,7 @@ export function useQuery(query, _temp) {
       // don't try to return `networkStatus` when suspense it's used
       // because it's unreliable in that case
       // https://github.com/trojanowski/react-apollo-hooks/pull/68
-      networkStatus: suspend ? undefined : result.networkStatus,
+      networkStatus: suspend ? undefined : networkStatus,
       partial: result.partial,
       stale: result.stale
     });
