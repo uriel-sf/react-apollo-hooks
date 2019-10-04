@@ -162,6 +162,15 @@ export function useQuery<
         };
       }
 
+      // Seems to be a bug in this fork when you skip a query and then call the query w/ previously cached result,
+      // you get a "network error" w/ no errors.
+      const networkStatus =
+        result.networkStatus === NetworkStatus.error &&
+        !result.error &&
+        !result.errors
+          ? NetworkStatus.ready
+          : result.networkStatus;
+
       return {
         ...helpers,
         data,
@@ -174,7 +183,7 @@ export function useQuery<
         // don't try to return `networkStatus` when suspense it's used
         // because it's unreliable in that case
         // https://github.com/trojanowski/react-apollo-hooks/pull/68
-        networkStatus: suspend ? undefined : result.networkStatus,
+        networkStatus: suspend ? undefined : networkStatus,
         partial: result.partial,
         stale: result.stale,
       };
