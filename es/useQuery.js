@@ -63,7 +63,12 @@ export function useQuery(query, _temp) {
       updateQuery: observableQuery.updateQuery.bind(observableQuery)
     };
     var result = observableQuery.getCurrentResult();
-    console.log(query, result); // return the old result data when there is an error
+    var name = query.definitions.find(function (x) {
+      var _name = x.name || {};
+
+      return _name.value || 'no_name';
+    });
+    console.log(name, result); // return the old result data when there is an error
 
     var data = result.data;
 

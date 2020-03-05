@@ -130,121 +130,131 @@ export function useQuery<
 
   const [responseId, setResponseId] = useState(0);
 
-  const currentResult = useMemo<QueryHookResult<TData, TVariables>>(() => {
-    const helpers = {
-      fetchMore: observableQuery.fetchMore.bind(observableQuery),
-      refetch: observableQuery.refetch.bind(observableQuery),
-      startPolling: observableQuery.startPolling.bind(observableQuery),
-      stopPolling: observableQuery.stopPolling.bind(observableQuery),
-      updateQuery: observableQuery.updateQuery.bind(observableQuery),
-    };
-
-    const result = observableQuery.getCurrentResult();
-    console.log(query, result);
-
-    // return the old result data when there is an error
-    let data = result.data as TData;
-    if (result.error || result.errors) {
-      data = {
-        ...result.data,
-        ...(observableQuery.getLastResult() || {}).data,
+  const currentResult = useMemo<QueryHookResult<TData, TVariables>>(
+    () => {
+      const helpers = {
+        fetchMore: observableQuery.fetchMore.bind(observableQuery),
+        refetch: observableQuery.refetch.bind(observableQuery),
+        startPolling: observableQuery.startPolling.bind(observableQuery),
+        stopPolling: observableQuery.stopPolling.bind(observableQuery),
+        updateQuery: observableQuery.updateQuery.bind(observableQuery),
       };
-    }
 
-    if (shouldSkip) {
-      // Taken from https://github.com/apollographql/react-apollo/blob/5cb63b3625ce5e4a3d3e4ba132eaec2a38ef5d90/src/Query.tsx#L376-L381
+      const result = observableQuery.getCurrentResult();
+      const name = query.definitions.find(x => {
+        const _name = (x as any).name || {};
+        return (_name as any).value || 'no_name';
+      });
+      console.log(name, result);
+
+      // return the old result data when there is an error
+      let data = result.data as TData;
+      if (result.error || result.errors) {
+        data = {
+          ...result.data,
+          ...(observableQuery.getLastResult() || {}).data,
+        };
+      }
+
+      if (shouldSkip) {
+        // Taken from https://github.com/apollographql/react-apollo/blob/5cb63b3625ce5e4a3d3e4ba132eaec2a38ef5d90/src/Query.tsx#L376-L381
+        return {
+          ...helpers,
+          data: undefined,
+          error: undefined,
+          loading: false,
+          networkStatus: undefined,
+        };
+      }
+
+      // Seems to be a bug in this fork when you skip a query and then call the query w/ previously cached result,
+      // you get a "network error" w/ no errors.
+      const networkStatus =
+        result.networkStatus === NetworkStatus.error &&
+        !result.error &&
+        !result.errors
+          ? NetworkStatus.ready
+          : result.networkStatus;
+
       return {
         ...helpers,
-        data: undefined,
-        error: undefined,
-        loading: false,
-        networkStatus: undefined,
+        data,
+        error:
+          result.errors && result.errors.length > 0
+            ? new ApolloError({ graphQLErrors: result.errors })
+            : result.error,
+        errors: result.errors,
+        loading: result.loading,
+        // don't try to return `networkStatus` when suspense it's used
+        // because it's unreliable in that case
+        // https://github.com/trojanowski/react-apollo-hooks/pull/68
+        networkStatus: suspend ? undefined : networkStatus,
+        partial: result.partial,
+        stale: result.stale,
       };
-    }
+    },
+    [shouldSkip, responseId, observableQuery]
+  );
 
-    // Seems to be a bug in this fork when you skip a query and then call the query w/ previously cached result,
-    // you get a "network error" w/ no errors.
-    const networkStatus =
-      result.networkStatus === NetworkStatus.error &&
-      !result.error &&
-      !result.errors
-        ? NetworkStatus.ready
-        : result.networkStatus;
-
-    return {
-      ...helpers,
-      data,
-      error:
-        result.errors && result.errors.length > 0
-          ? new ApolloError({ graphQLErrors: result.errors })
-          : result.error,
-      errors: result.errors,
-      loading: result.loading,
-      // don't try to return `networkStatus` when suspense it's used
-      // because it's unreliable in that case
-      // https://github.com/trojanowski/react-apollo-hooks/pull/68
-      networkStatus: suspend ? undefined : networkStatus,
-      partial: result.partial,
-      stale: result.stale,
-    };
-  }, [shouldSkip, responseId, observableQuery]);
-
-  useEffect(() => {
-    if (shouldSkip) {
-      return;
-    }
-
-    let subscription: ZenObservable.Subscription | undefined;
-
-    const invalidateCurrentResult = () => {
-      // A hack to get rid React warnings during tests. The default
-      // implementation of `actHack` just invokes the callback immediately.
-      // In tests, it's replaced with `act` from react-testing-library.
-      // A better solution welcome.
-      actHack(() => {
-        setResponseId(x => x + 1);
-      });
-    };
-
-    // from: https://github.com/apollographql/react-apollo/blob/master/src/Query.tsx#L363
-    // after a error on refetch, without this fix, refetch never works again
-    function invalidateErrorResult() {
-      unsubscribe();
-
-      const lastError = observableQuery.getLastError();
-      const lastResult = observableQuery.getLastResult();
-
-      if (!suspend) {
-        observableQuery.resetLastResults();
-        subscribe();
+  useEffect(
+    () => {
+      if (shouldSkip) {
+        return;
       }
 
-      Object.assign(observableQuery, { lastError, lastResult });
+      let subscription: ZenObservable.Subscription | undefined;
 
-      actHack(() => {
-        setResponseId(x => x + 1);
-      });
-    }
+      const invalidateCurrentResult = () => {
+        // A hack to get rid React warnings during tests. The default
+        // implementation of `actHack` just invokes the callback immediately.
+        // In tests, it's replaced with `act` from react-testing-library.
+        // A better solution welcome.
+        actHack(() => {
+          setResponseId(x => x + 1);
+        });
+      };
 
-    invalidateCachedObservableQuery(client, watchQueryOptions);
+      // from: https://github.com/apollographql/react-apollo/blob/master/src/Query.tsx#L363
+      // after a error on refetch, without this fix, refetch never works again
+      function invalidateErrorResult() {
+        unsubscribe();
 
-    function subscribe() {
-      subscription = observableQuery.subscribe(
-        invalidateCurrentResult,
-        invalidateErrorResult
-      );
-    }
+        const lastError = observableQuery.getLastError();
+        const lastResult = observableQuery.getLastResult();
 
-    function unsubscribe() {
-      if (subscription) {
-        subscription.unsubscribe();
+        if (!suspend) {
+          observableQuery.resetLastResults();
+          subscribe();
+        }
+
+        Object.assign(observableQuery, { lastError, lastResult });
+
+        actHack(() => {
+          setResponseId(x => x + 1);
+        });
       }
-      subscription = undefined;
-    }
 
-    subscribe();
-    return unsubscribe;
-  }, [shouldSkip, observableQuery]);
+      invalidateCachedObservableQuery(client, watchQueryOptions);
+
+      function subscribe() {
+        subscription = observableQuery.subscribe(
+          invalidateCurrentResult,
+          invalidateErrorResult
+        );
+      }
+
+      function unsubscribe() {
+        if (subscription) {
+          subscription.unsubscribe();
+        }
+        subscription = undefined;
+      }
+
+      subscribe();
+      return unsubscribe;
+    },
+    [shouldSkip, observableQuery]
+  );
 
   ensureSupportedFetchPolicy(suspend, fetchPolicy);
 
