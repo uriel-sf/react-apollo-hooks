@@ -63,7 +63,7 @@ export function useQuery(query, _temp) {
       updateQuery: observableQuery.updateQuery.bind(observableQuery)
     };
     var result = observableQuery.getCurrentResult();
-    var name = query.definitions.find(function (x) {
+    var name = query.definitions.map(function (x) {
       var _name = x.name || {};
 
       return _name.value || 'no_name';

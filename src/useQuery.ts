@@ -141,7 +141,7 @@ export function useQuery<
       };
 
       const result = observableQuery.getCurrentResult();
-      const name = query.definitions.find(x => {
+      const name = query.definitions.map(x => {
         const _name = (x as any).name || {};
         return (_name as any).value || 'no_name';
       });
